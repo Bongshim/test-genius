@@ -43,10 +43,16 @@ module.exports = (sequelize, dataType) => {
     isEmailVerified: {
       type: dataType.BOOLEAN,
     },
+    phoneNumber: {
+      type: dataType.STRING,
+      trim: true,
+    },
+    lastLogin: {
+      type: dataType.DATE,
+    },
   });
 
   sequelizePaginate.paginate(user);
-
 
   return user;
 };

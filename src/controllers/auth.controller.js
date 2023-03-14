@@ -8,6 +8,10 @@ const register = catchAsync(async (req, res) => {
   delete user.dataValues.password;
 
   const tokens = await tokenService.generateAuthTokens(user.dataValues.id);
+
+  // update last login
+  await userService.updateUserById(user.dataValues.id, { last_login: new Date() });
+
   res.status(httpStatus.CREATED).send({ user, tokens });
 });
 

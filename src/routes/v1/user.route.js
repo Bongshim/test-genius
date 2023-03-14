@@ -8,14 +8,14 @@ const router = express.Router();
 
 router
   .route('/')
-  .post(auth('manageUsers'), validate(userValidation.createUser), userController.createUser)
-  .get(auth('getUsers'), validate(userValidation.getUsers), userController.getUsers);
+  .post(auth('users.manage'), validate(userValidation.createUser), userController.createUser)
+  .get(auth('users.view'), validate(userValidation.getUsers), userController.getUsers);
 
 router
   .route('/:userId')
-  .get(auth('getUsers'), validate(userValidation.getUser), userController.getUser)
-  .patch(auth('manageUsers'), validate(userValidation.updateUser), userController.updateUser)
-  .delete(auth('manageUsers'), validate(userValidation.deleteUser), userController.deleteUser);
+  .get(auth('users.view'), validate(userValidation.getUser), userController.getUser)
+  .patch(auth('users.manage'), validate(userValidation.updateUser), userController.updateUser)
+  .delete(auth('users.manage'), validate(userValidation.deleteUser), userController.deleteUser);
 
 module.exports = router;
 
@@ -89,26 +89,16 @@ module.exports = router;
  *       - bearerAuth: []
  *     parameters:
  *       - in: query
- *         name: name
+ *         name: firstName
  *         schema:
  *           type: string
- *         description: User name
- *       - in: query
- *         name: role
- *         schema:
- *           type: string
- *         description: User role
- *       - in: query
- *         name: sortBy
- *         schema:
- *           type: string
- *         description: sort by query in the form of field:desc/asc (ex. name:asc)
+ *         description: First name
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
  *           minimum: 1
- *         default: 10
+ *         default: 25
  *         description: Maximum number of users
  *       - in: query
  *         name: page

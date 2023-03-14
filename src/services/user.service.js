@@ -1,8 +1,11 @@
 const httpStatus = require('http-status');
 const bcrypt = require('bcryptjs');
+const { Op } = require('sequelize');
 const ApiError = require('../utils/ApiError');
 const { db } = require('../models');
 const logger = require('../config/logger');
+const { sendEmail } = require('./email.service');
+const { getMessageTemplateByTitle, convertTemplateToMessage } = require('./message_template.service');
 
 /**
  * Check if email is taken
@@ -10,7 +13,7 @@ const logger = require('../config/logger');
  * @returns {Promise<boolean>}
  */
 const isEmailTaken = async function (email) {
-  const user = await db.users.findOne({ where: { email } });
+  const user = await db.user.findOne({ where: { email } });
   logger.info(user);
   return !!user;
 };
@@ -27,40 +30,96 @@ const isPasswordMatch = async function (password, user) {
 };
 
 /**
- * Create a user
- * @param {Object} userBody
- * @returns {Promise<User>}
- */
-const createUser = async (userBody) => {
-  if (await isEmailTaken(userBody.email)) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'Email already taken');
-  }
-  // eslint-disable-next-line no-param-reassign
-  userBody.password = bcrypt.hashSync(userBody.password, 8);
-  return db.users.create(userBody);
-};
-
-/**
- * Query for users
- * @param {Object} filter - Mongo filter
- * @param {Object} options - Query options
- * @param {string} [options.sortBy] - Sort option in the format: sortField:(desc|asc)
- * @param {number} [options.limit] - Maximum number of results per page (default = 10)
- * @param {number} [options.page] - Current page (default = 1)
- * @returns {Promise<QueryResult>}
- */
-const queryUsers = async (filter, options) => {
-  const users = await db.users.paginate(filter, options);
-  return users;
-};
-
-/**
  * Get user by id
  * @param {ObjectId} id
  * @returns {Promise<User>}
  */
 const getUserById = async (id) => {
-  return db.users.findById(id);
+  return db.user.findByPk(id, {
+    include: {
+      model: db.roles,
+      as: 'roles',
+      attributes: ['name'],
+      through: { attributes: [] },
+    },
+  });
+};
+
+const sendUserWelcomeEmail = async (user) => {
+  // get user email and first name
+  const { email, firstName } = user.dataValues;
+  // get message template
+  const {
+    dataValues: { emailSubject, emailBody },
+  } = await getMessageTemplateByTitle('Welcome_Email');
+
+  const text = await convertTemplateToMessage(emailBody, {
+    firstName,
+  });
+
+  await sendEmail(email, emailSubject, text);
+};
+
+/**
+ * Create a user
+ * @param {Object} userBody
+ * @returns {Promise<User>}
+ */
+const createUser = async (userBody) => {
+  // extact user role
+  const { role, ...userProfile } = userBody;
+
+  // check if email is taken
+  if (await isEmailTaken(userProfile.email)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Email already taken');
+  }
+
+  // get the user role
+  const userRole = await db.roles.findOne({ where: { name: role } });
+
+  // eslint-disable-next-line no-param-reassign
+  userProfile.password = bcrypt.hashSync(userProfile.password, 8);
+  const user = await db.user.create(userProfile);
+
+  // set the user role
+  await user.setRoles(userRole);
+
+  // send welcome email
+  await sendUserWelcomeEmail(user);
+
+  // return user object with role
+  return getUserById(user.id);
+};
+
+/**
+ * Query for users
+ * @param {Object} filter - filter
+ * @param {Object} options - Query options
+ * @param {number} [filter.firstName] - filter firstname
+ * @param {number} [current.limit] - Maximum number of results per page (default = 25)
+ * @param {number} [current.page] - The row to start from (default = 0)
+ * @returns {Promise<QueryResult>}
+ */
+const queryUsers = async (filter, current) => {
+  // get user and include their roles
+  const options = {
+    attributes: { exclude: ['password'] },
+    page: current.page, // Default 1
+    paginate: current.limit, // Default 25
+    where: {
+      firstName: {
+        [Op.like]: `%${filter.firstName || ''}%`,
+      },
+    },
+    include: {
+      model: db.roles,
+      as: 'roles',
+      attributes: ['name'],
+      through: { attributes: [] },
+    },
+  };
+  const { docs, pages, total } = await db.user.paginate(options);
+  return { users: docs, limit: options.paginate, totalPages: pages, totalResults: total };
 };
 
 /**
@@ -69,26 +128,61 @@ const getUserById = async (id) => {
  * @returns {Promise<User>}
  */
 const getUserByEmail = async (email) => {
-  return db.users.findOne({ where: { email } });
+  return db.user.findOne({
+    where: { email },
+    include: {
+      model: db.roles,
+      as: 'roles',
+      attributes: ['name'],
+      through: { attributes: [] },
+    },
+  });
 };
 
 /**
  * Update user by id
  * @param {ObjectId} userId
  * @param {Object} updateBody
+ * @param {Object} currentUser
  * @returns {Promise<User>}
  */
 const updateUserById = async (userId, updateBody) => {
+  const { role, ...userProfile } = updateBody;
   const user = await getUserById(userId);
+
   if (!user) {
     throw new ApiError(httpStatus.NOT_FOUND, 'User not found');
   }
-  if (updateBody.email && (await isEmailTaken(updateBody.email, userId))) {
+
+  if (userProfile.email && (await isEmailTaken(userProfile.email, userId))) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Email already taken');
   }
-  Object.assign(user, updateBody);
-  await db.users.update(user);
-  return user;
+
+  // if password is updated, hash it
+  if (userProfile.password) {
+    // eslint-disable-next-line no-param-reassign
+    userProfile.password = bcrypt.hashSync(userProfile.password, 8);
+  }
+
+  // if role is updated, get the role
+  if (role) {
+    // get the new role
+    const userRole = await db.roles.findAll({ where: { name: role.map((r) => r) } });
+
+    // confirm the role passed is valid
+    if (userRole.length !== role.length) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid role');
+    }
+
+    // remove existing role
+    await user.removeRoles();
+    // set the new role
+    await user.setRoles(userRole);
+  }
+
+  Object.assign(user, userProfile);
+  await user.save();
+  return getUserById(userId);
 };
 
 /**
@@ -101,7 +195,8 @@ const deleteUserById = async (userId) => {
   if (!user) {
     throw new ApiError(httpStatus.NOT_FOUND, 'User not found');
   }
-  await db.users.destroy(user);
+
+  await user.destroy();
   return user;
 };
 

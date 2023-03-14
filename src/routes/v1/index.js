@@ -2,9 +2,11 @@ const express = require('express');
 const authRoute = require('./auth.route');
 const userRoute = require('./user.route');
 const docsRoute = require('./docs.route');
-const teacherRoute = require('./teacher.route');
-const subjectRoute = require('./subject.route');
 const config = require('../../config/config');
+const messageTemplateRoute = require('./message_template.route');
+const variableRoute = require('./variable.route');
+const roleRoute = require('./role.route');
+const permissionRoute = require('./permission.route');
 
 const router = express.Router();
 
@@ -18,12 +20,20 @@ const defaultRoutes = [
     route: userRoute,
   },
   {
-    path: '/teachers',
-    route: teacherRoute,
+    path: '/variables',
+    route: variableRoute,
   },
   {
-    path: '/subjects',
-    route: subjectRoute,
+    path: '/message-templates',
+    route: messageTemplateRoute,
+  },
+  {
+    path: '/roles',
+    route: roleRoute,
+  },
+  {
+    path: '/permissions',
+    route: permissionRoute,
   },
 ];
 

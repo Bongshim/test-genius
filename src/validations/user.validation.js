@@ -7,13 +7,13 @@ const createUser = {
     password: Joi.string().required().custom(password),
     firstName: Joi.string().required(),
     lastName: Joi.string().required(),
-    role: Joi.string().required().valid('user', 'admin'),
+    role: Joi.string().required(),
   }),
 };
 
 const getUsers = {
   query: Joi.object().keys({
-    name: Joi.string(),
+    firstName: Joi.string(),
     role: Joi.string(),
     limit: Joi.number().integer(),
     page: Joi.number().integer(),

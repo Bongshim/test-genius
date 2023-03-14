@@ -17,6 +17,8 @@ const loginUserWithEmailAndPassword = async (email, password) => {
     throw new ApiError(httpStatus.UNAUTHORIZED, 'Incorrect email or password');
   }
   delete user.dataValues.password;
+  // update last login
+  await userService.updateUserById(user.dataValues.id, { last_login: new Date() });
   return user;
 };
 
