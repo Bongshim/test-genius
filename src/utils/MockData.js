@@ -77,6 +77,7 @@ const createDummyMessageTemplates = async () => {
         emailBody: 'Hello {{firstName}}, welcome to the platform',
         smsSubject: 'Welcome to the platform',
         smsBody: 'Hello {{firstName}}, welcome to the platform',
+        type: 'admin',
       },
       variables: [
         {
@@ -94,6 +95,7 @@ const createDummyMessageTemplates = async () => {
         smsSubject: 'Reset Password',
         smsBody:
           'Dear {{firstName}}, To reset your password, click on this link: http://localhost:3000/reset-password?token={{token}} If you did not request any password resets, then ignore this email.',
+        type: 'admin',
       },
       variables: [
         {

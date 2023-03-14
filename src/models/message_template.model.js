@@ -32,6 +32,11 @@ module.exports = (sequelize, dataType) => {
       allowNull: false,
       trim: true,
     },
+    type: {
+      type: dataType.ENUM('user', 'admin'),
+      allowNull: false,
+      defaultValue: 'admin',
+    },
   });
 
   sequelizePaginate.paginate(messageTemplate);

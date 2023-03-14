@@ -71,7 +71,7 @@ app.use(errorConverter);
 app.use(errorHandler);
 
 // intit DB
-db.sequelize.sync({ alter: true }).then(() => {
+db.sequelize.sync({ force: true }).then(() => {
   createDummyRoles();
   createDummyVariables();
   createDummyMessageTemplates();
