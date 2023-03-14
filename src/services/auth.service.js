@@ -16,6 +16,7 @@ const loginUserWithEmailAndPassword = async (email, password) => {
   if (!user || !(await userService.isPasswordMatch(password, user.dataValues))) {
     throw new ApiError(httpStatus.UNAUTHORIZED, 'Incorrect email or password');
   }
+  delete user.dataValues.password;
   return user;
 };
 
@@ -25,11 +26,13 @@ const loginUserWithEmailAndPassword = async (email, password) => {
  * @returns {Promise}
  */
 const logout = async (refreshToken) => {
-  const refreshTokenDoc = await db.findOne({ where: { token: refreshToken, type: tokenTypes.REFRESH, blacklisted: false } });
+  const refreshTokenDoc = await db.tokens.findOne({
+    where: { token: refreshToken, type: tokenTypes.REFRESH, blacklisted: false },
+  });
   if (!refreshTokenDoc) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Not found');
   }
-  await refreshTokenDoc.remove();
+  await refreshTokenDoc.destroy();
 };
 
 /**
@@ -40,12 +43,12 @@ const logout = async (refreshToken) => {
 const refreshAuth = async (refreshToken) => {
   try {
     const refreshTokenDoc = await tokenService.verifyToken(refreshToken, tokenTypes.REFRESH);
-    const user = await userService.getUserById(refreshTokenDoc.user);
+    const user = await userService.getUserById(refreshTokenDoc.dataValues.userId);
     if (!user) {
       throw new Error();
     }
-    await refreshTokenDoc.remove();
-    return tokenService.generateAuthTokens(user);
+    await refreshTokenDoc.destroy();
+    return tokenService.generateAuthTokens(user.dataValues.id);
   } catch (error) {
     throw new ApiError(httpStatus.UNAUTHORIZED, 'Please authenticate');
   }
@@ -60,12 +63,12 @@ const refreshAuth = async (refreshToken) => {
 const resetPassword = async (resetPasswordToken, newPassword) => {
   try {
     const resetPasswordTokenDoc = await tokenService.verifyToken(resetPasswordToken, tokenTypes.RESET_PASSWORD);
-    const user = await userService.getUserById(resetPasswordTokenDoc.user);
+    const user = await userService.getUserById(resetPasswordTokenDoc.userId);
     if (!user) {
       throw new Error();
     }
     await userService.updateUserById(user.id, { password: newPassword });
-    await db.tokens.destroy({ where: { user: user.id, type: tokenTypes.RESET_PASSWORD } });
+    await db.tokens.destroy({ where: { userId: user.id, type: tokenTypes.RESET_PASSWORD } });
   } catch (error) {
     throw new ApiError(httpStatus.UNAUTHORIZED, 'Password reset failed');
   }

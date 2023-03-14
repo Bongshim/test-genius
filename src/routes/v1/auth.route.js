@@ -39,12 +39,15 @@ module.exports = router;
  *             required:
  *               - firstName
  *               - lastName
+ *               - phoneNumber
  *               - email
  *               - password
  *             properties:
  *               firstName:
  *                 type: string
  *               lastName:
+ *                 type: string
+ *               phoneNumber:
  *                 type: string
  *               email:
  *                 type: string
@@ -56,8 +59,9 @@ module.exports = router;
  *                 minLength: 8
  *                 description: At least one number and one letter
  *             example:
- *               firstName: fake
- *               lastNAme: name
+ *               firstName: fake name
+ *               lastName: fake name
+ *               phoneNumber: 12345678
  *               email: fake@example.com
  *               password: password1
  *     responses:
